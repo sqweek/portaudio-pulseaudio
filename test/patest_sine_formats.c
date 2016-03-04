@@ -110,7 +110,8 @@ static int patestCallback( const void *inputBuffer,
                            void *userData )
 {
     paTestData *data = (paTestData*)userData;
-    SAMPLE_t *out = (SAMPLE_t *)outputBuffer;
+    SAMPLE_t *lout = ((SAMPLE_t **)outputBuffer)[0];
+    SAMPLE_t *rout = ((SAMPLE_t **)outputBuffer)[1];
     int i;
     int framesToCalc;
     int finished = 0;
@@ -132,17 +133,22 @@ static int patestCallback( const void *inputBuffer,
     {
         data->left_phase += (LEFT_FREQ / SAMPLE_RATE);
         if( data->left_phase > 1.0) data->left_phase -= 1.0;
-        *out++ = DOUBLE_TO_SAMPLE( AMPLITUDE * sin( (data->left_phase * M_PI * 2. )));
-
+        *lout++ = DOUBLE_TO_SAMPLE( AMPLITUDE * sin( (data->left_phase * M_PI * 2. )));
+    }
+    for( ; i<(int)framesPerBuffer; i++ )
+    {
+        *lout++ = SAMPLE_ZERO; /* left */
+    }
+    for( i=0; i<framesToCalc; i++ )
+    {
         data->right_phase += (RIGHT_FREQ / SAMPLE_RATE);
         if( data->right_phase > 1.0) data->right_phase -= 1.0;
-        *out++ = DOUBLE_TO_SAMPLE( AMPLITUDE * sin( (data->right_phase * M_PI * 2. )));
+        *rout++ = DOUBLE_TO_SAMPLE( AMPLITUDE * sin( (data->right_phase * M_PI * 2. )));
     }
     /* zero remainder of final buffer */
     for( ; i<(int)framesPerBuffer; i++ )
     {
-        *out++ = SAMPLE_ZERO; /* left */
-        *out++ = SAMPLE_ZERO; /* right */
+        *rout++ = SAMPLE_ZERO; /* right */
     }
     return finished;
 }
@@ -166,7 +172,7 @@ int main(void)
 
     outputParameters.device           = Pa_GetDefaultOutputDevice(); /* Default output device. */
     outputParameters.channelCount     = 2;                           /* Stereo output */
-    outputParameters.sampleFormat     = TEST_FORMAT;                 /* Selected above. */
+    outputParameters.sampleFormat     = (TEST_FORMAT) | paNonInterleaved;                 /* Selected above. */
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = NULL;
     err = Pa_OpenStream( &stream,
